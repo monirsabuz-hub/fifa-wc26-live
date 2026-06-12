@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-sport-bg: #050B14;
+  --color-sport-card: #0D1626;
+  --color-sport-accent: #00FF88;
+  --color-sport-text: #FFFFFF;
+  --color-sport-secondary: #A0AEC0;
+  
+  --font-sans: 'Outfit', 'Inter', sans-serif;
+}
+
+/* Custom Scrollbars and base overrides */
+body {
+  background-color: #050B14;
+  color: #FFFFFF;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050B14;
+}
+::-webkit-scrollbar-thumb {
+  background: #0D1626;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
+}
+
+/* Dynamic custom utility animations */
+@keyframes pulse-accent {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 5px rgba(0, 255, 136, 0.15);
+  }
+}
+
+.animate-pulse-accent {
+  animation: pulse-accent 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Glassmorphism custom styles */
+.glass-panel {
+  background: rgba(13, 22, 38, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  background: rgba(13, 22, 38, 0.85);
+  border-color: rgba(0, 255, 136, 0.3);
+  box-shadow: 0 10px 30px -10px rgba(0, 255, 136, 0.15);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Match stadium lines grid overlay */
+.stadium-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 90%);
+}
+
+/* Premium custom neon glow effects */
+.neon-glow-accent {
+  box-shadow: 0 0 25px rgba(0, 255, 136, 0.15);
+  border-color: rgba(0, 255, 136, 0.3) !important;
+}
+
+.neon-glow-yellow {
+  box-shadow: 0 0 25px rgba(250, 204, 21, 0.12);
+  border-color: rgba(250, 204, 21, 0.3) !important;
+}
+
+/* Slow gradient background wave animation */
+@keyframes wave-glow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-wave-glow {
+  background-size: 200% 200%;
+  animation: wave-glow 10s ease infinite;
+}
+

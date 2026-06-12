@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/cors-proxy/(.*)",
+      "destination": "/api/proxy?url=$1"
+    }
+  ]
+}

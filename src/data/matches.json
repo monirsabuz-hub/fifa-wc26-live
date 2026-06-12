@@ -1,0 +1,100 @@
+[
+  {
+    "id": "match-wc26-live-1",
+    "homeTeam": "USA",
+    "homeFlag": "🇺🇸",
+    "awayTeam": "Mexico",
+    "awayFlag": "🇲🇽",
+    "status": "live",
+    "score": "1 - 0",
+    "minute": "63'",
+    "time": "Live Now",
+    "group": "Group A",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-live-2",
+    "homeTeam": "Brazil",
+    "homeFlag": "🇧🇷",
+    "awayTeam": "Argentina",
+    "awayFlag": "🇦🇷",
+    "status": "live",
+    "score": "0 - 1",
+    "minute": "38'",
+    "time": "Live Now",
+    "group": "Group B",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-up-1",
+    "homeTeam": "Canada",
+    "homeFlag": "🇨🇦",
+    "awayTeam": "Bosnia",
+    "awayFlag": "🇧🇦",
+    "status": "upcoming",
+    "score": null,
+    "time": "Today, 14:53",
+    "group": "Group C",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-up-2",
+    "homeTeam": "Spain",
+    "homeFlag": "🇪🇸",
+    "awayTeam": "Germany",
+    "awayFlag": "🇩🇪",
+    "status": "upcoming",
+    "score": null,
+    "time": "Today, 00:00",
+    "group": "Group D",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-up-3",
+    "homeTeam": "Portugal",
+    "homeFlag": "🇵🇹",
+    "awayTeam": "Japan",
+    "awayFlag": "🇯🇵",
+    "status": "upcoming",
+    "score": null,
+    "time": "Tomorrow, 18:00",
+    "group": "Group E",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-up-4",
+    "homeTeam": "Netherlands",
+    "homeFlag": "🇳🇱",
+    "awayTeam": "Senegal",
+    "awayFlag": "🇸🇳",
+    "status": "upcoming",
+    "score": null,
+    "time": "Tomorrow, 21:00",
+    "group": "Group F",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-fin-1",
+    "homeTeam": "Morocco",
+    "homeFlag": "🇲🇦",
+    "awayTeam": "Canada",
+    "awayFlag": "🇨🇦",
+    "status": "finished",
+    "score": "2 - 1",
+    "time": "Yesterday",
+    "group": "Group G",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  },
+  {
+    "id": "match-wc26-fin-2",
+    "homeTeam": "South Korea",
+    "homeFlag": "🇰🇷",
+    "awayTeam": "Uruguay",
+    "awayFlag": "🇺🇾",
+    "status": "finished",
+    "score": "1 - 1",
+    "time": "Yesterday",
+    "group": "Group H",
+    "broadcasters": ["TSports.bd", "FIFAPlus.uk"]
+  }
+]
