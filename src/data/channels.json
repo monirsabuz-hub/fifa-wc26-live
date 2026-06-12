@@ -39,6 +39,23 @@
     "user_agent": null
   },
   {
+    "id": "FIFAPlus.uk",
+    "name": "FIFA+",
+    "country": "INT",
+    "categories": [
+      "sports",
+      "fifa-26"
+    ],
+    "logo": "https://api.thextribune.com/files/FIFA_plus_1781171192455_ffc541836205c97d.webp",
+    "streamUrl": "https://a62dad94.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X0ZJRkFQbHVzRW5nbGlzaF9ITFM/playlist.m3u8",
+    "isIframe": false,
+    "isWorldCupBroadcaster": true,
+    "latency": 1100,
+    "status": 200,
+    "http_referrer": null,
+    "user_agent": null
+  },
+  {
     "id": "1ball-stream-1",
     "name": "World Cup Stream 1 (1ball)",
     "country": "PK",

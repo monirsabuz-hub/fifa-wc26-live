@@ -90,7 +90,8 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
     setIsLoading(true);
 
     let streamUrl = customStreamUrl || channel.streamUrl;
-    if (useProxy && streamUrl && streamUrl.startsWith('http')) {
+    const shouldProxy = useProxy && !channel.bypassProxy;
+    if (shouldProxy && streamUrl && streamUrl.startsWith('http')) {
       if (streamUrl.startsWith('https://')) {
         streamUrl = `/cors-proxy/https/${streamUrl.slice(8)}`;
       } else if (streamUrl.startsWith('http://')) {
@@ -540,7 +541,8 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
     if (hlsRef.current && channel) {
       setErrorMsg('Reloading stream...');
       let url = channel.streamUrl;
-      if (useProxy && url && url.startsWith('http')) {
+      const shouldProxy = useProxy && !channel.bypassProxy;
+      if (shouldProxy && url && url.startsWith('http')) {
         if (url.startsWith('https://')) {
           url = `/cors-proxy/https/${url.slice(8)}`;
         } else if (url.startsWith('http://')) {
@@ -553,7 +555,8 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
     } else if (shakaRef.current && channel) {
       setErrorMsg('Reloading stream...');
       let url = channel.streamUrl;
-      if (useProxy && url && url.startsWith('http')) {
+      const shouldProxy = useProxy && !channel.bypassProxy;
+      if (shouldProxy && url && url.startsWith('http')) {
         if (url.startsWith('https://')) {
           url = `/cors-proxy/https/${url.slice(8)}`;
         } else if (url.startsWith('http://')) {
@@ -721,6 +724,26 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
             preload="auto"
             onClick={togglePlay}
           />
+        )}
+
+        {/* Play Button Overlay (when autoplay is blocked or paused) */}
+        {!channel?.isIframe && !isPlaying && !isLoading && !errorMsg && (
+          <div 
+            onClick={togglePlay}
+            className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/45 cursor-pointer transition-all duration-300 z-10"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ scale: 1.1 }}
+              className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-sport-accent text-black flex items-center justify-center shadow-2xl shadow-sport-accent/40 cursor-pointer"
+            >
+              <Play className="h-8 w-8 md:h-10 md:w-10 fill-current translate-x-0.5" />
+            </motion.div>
+            <div className="absolute bottom-16 text-center text-[10px] md:text-xs font-black text-white uppercase tracking-widest pointer-events-none bg-black/60 px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+              Click to Start Stream
+            </div>
+          </div>
         )}
 
         {/* Loading Overlay */}

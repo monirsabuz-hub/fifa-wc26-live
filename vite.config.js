@@ -69,11 +69,8 @@ export default defineConfig({
                   res.write(text);
                   res.end();
                 } else {
-                  if (response.body) {
-                    for await (const chunk of response.body) {
-                      res.write(chunk);
-                    }
-                  }
+                  const arrayBuffer = await response.arrayBuffer();
+                  res.write(Buffer.from(arrayBuffer));
                   res.end();
                 }
               } catch (err) {
