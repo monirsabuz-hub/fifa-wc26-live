@@ -10,6 +10,8 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
   const shakaRef = useRef(null);
   const containerRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+  const touchStartTimestamp = useRef(0);
 
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -102,6 +104,34 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     setShowControls(prev => !prev);
   };
 
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    touchStartTimestamp.current = Date.now();
+  };
+
+  const handleTouchEnd = (e) => {
+    if (e.target.closest('button, input, [role="button"], .no-toggle')) {
+      resetControlsTimeout();
+      return;
+    }
+
+    const touch = e.changedTouches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+    const dt = Date.now() - touchStartTimestamp.current;
+
+    // If it's a drag/scroll (e.g. moved more than 10px or touch lasted more than 300ms), ignore it
+    if (dx > 10 || dy > 10 || dt > 300) {
+      return;
+    }
+
+    // Otherwise, treat as tap. Prevent default to avoid simulated mouse/click event double-toggle
+    e.preventDefault();
+    setShowControls(prev => !prev);
+    resetControlsTimeout();
+  };
+
   useEffect(() => {
     if (channel) {
       setLogoUrl(channel.logo && channel.logo.trim().length > 0 ? channel.logo : null);
@@ -162,6 +192,15 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     setIsLoading(true);
     setHasStartedPlaying(false);
 
+    // Reset and clear the video element's source to clear any previous still frame
+    video.src = '';
+    try {
+      video.removeAttribute('src');
+      video.load();
+    } catch (e) {
+      // ignore
+    }
+
     let streamUrl = customStreamUrl || channel.streamUrl;
     const shouldProxy = useProxy && !channel.bypassProxy;
     if (shouldProxy && streamUrl && streamUrl.startsWith('http')) {
@@ -185,7 +224,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
       setErrorMsg(null);
     };
     const handleCanPlay = () => {
-      setIsLoading(false);
+      // Rely on handlePlaying to clear the loading screen so we don't show a frozen first frame
       setShowCorsHelper(false);
       clearTimeout(loadingTimeout);
     };
@@ -260,7 +299,6 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
               bufferingGoal: 4,          // Reduces start latency by playing when 4s of video is loaded (default 10s)
               rebufferingGoal: 2,        // Recovers from buffer stalls faster (default 5s)
               lowLatencyMode: true,      // Tells player to optimize for lower end-to-end latency
-              jumpLargeGaps: true,       // Skip gap segments automatically
             },
             manifest: {
               dash: {
@@ -305,7 +343,8 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
 
           player.load(streamUrl)
             .then(() => {
-              setIsLoading(false);
+              // We rely on handlePlaying to clear the loading screen and mark playback as started.
+              // This prevents a frozen first frame from showing while the player is loading.
               setShowCorsHelper(false);
               clearTimeout(loadingTimeout);
 
@@ -332,10 +371,15 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
               setLevels([{ index: -1, label: 'Auto' }, ...mappedLevels]);
 
               video.play()
-                .then(() => setIsPlaying(true))
+                .then(() => {
+                  setIsPlaying(true);
+                  setIsLoading(false);
+                  setHasStartedPlaying(true);
+                })
                 .catch((e) => {
                   console.log("Play blocked:", e);
                   setIsPlaying(false);
+                  setIsLoading(false); // Clear loading overlay to show Play button
                 });
             })
             .catch((err) => {
@@ -426,10 +470,15 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
         }
 
         video.play()
-          .then(() => setIsPlaying(true))
+          .then(() => {
+            setIsPlaying(true);
+            setIsLoading(false);
+            setHasStartedPlaying(true);
+          })
           .catch((e) => {
             console.log("Auto-play blocked, waiting for user interaction:", e);
             setIsPlaying(false);
+            setIsLoading(false); // Clear loading overlay to show Play button
           });
       });
 
@@ -535,8 +584,16 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
       video.src = streamUrl;
       video.addEventListener('loadedmetadata', () => {
         video.play()
-          .then(() => setIsPlaying(true))
-          .catch((e) => console.log(e));
+          .then(() => {
+            setIsPlaying(true);
+            setIsLoading(false);
+            setHasStartedPlaying(true);
+          })
+          .catch((e) => {
+            console.log("Native HLS autoplay blocked:", e);
+            setIsPlaying(false);
+            setIsLoading(false); // Clear loading overlay
+          });
       });
 
       const interval = setInterval(() => {
@@ -673,7 +730,6 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
       setIsLoading(true);
       shakaRef.current.load(url)
         .then(() => {
-          setIsLoading(false);
           setErrorMsg(null);
         })
         .catch((err) => {
@@ -841,13 +897,14 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
         </div>
       </div>
 
-      {/* Screen Player */}
       <div 
         ref={containerRef}
         className={`relative w-full aspect-video bg-black overflow-hidden shadow-2xl group transition-all duration-300 ${
           isFullscreen ? 'rounded-none border-0' : 'rounded-2xl border border-white/5'
         }`}
         onClick={handleContainerClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         onMouseEnter={() => {
           setShowControls(true);
         }}

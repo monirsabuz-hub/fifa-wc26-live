@@ -99,15 +99,15 @@ function App() {
     <div className="flex flex-col min-h-screen bg-sport-bg text-white selection:bg-sport-accent selection:text-black">
       
       {/* 1. Header Bar */}
-      <header className="sticky top-0 z-40 w-full glass-panel border-b border-white/5 px-4 md:px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-sport-accent/10 border border-sport-accent/20 flex items-center justify-center shadow-lg shadow-sport-accent/5">
-            <Trophy className="h-6 w-6 text-sport-accent animate-pulse-accent" />
+      <header className="sticky top-0 z-40 w-full glass-panel border-b border-white/5 px-4 md:px-8 py-3 sm:py-4 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-center">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-sport-accent/10 border border-sport-accent/20 flex items-center justify-center shadow-lg shadow-sport-accent/5">
+            <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-sport-accent animate-pulse-accent" />
           </div>
           <div>
-            <h1 className="text-base md:text-lg font-black tracking-wider bg-gradient-to-r from-white via-white to-sport-accent bg-clip-text text-transparent flex items-center gap-2">
+            <h1 className="text-sm sm:text-base md:text-lg font-black tracking-wider bg-gradient-to-r from-white via-white to-sport-accent bg-clip-text text-transparent flex items-center gap-1.5 sm:gap-2">
               FIFA STREAMER
-              <span className="text-[9px] bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black px-1.5 py-0.5 rounded tracking-wider shadow-md">
+              <span className="text-[8px] sm:text-[9px] bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black px-1.5 py-0.5 rounded tracking-wider shadow-md">
                 2026 WC
               </span>
             </h1>
@@ -118,10 +118,10 @@ function App() {
         </div>
 
         {/* Sync/Status Badges */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {liveMatches.length > 0 && (
-            <div className="flex items-center gap-2 bg-sport-accent/5 border border-sport-accent/15 px-3 py-1.5 rounded-xl text-[10px] font-black text-sport-accent uppercase tracking-wider">
-              <span className="h-1.5 w-1.5 rounded-full bg-sport-accent animate-pulse" />
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-sport-accent/5 border border-sport-accent/15 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[8px] sm:text-[10px] font-black text-sport-accent uppercase tracking-wider">
+              <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full bg-sport-accent animate-pulse" />
               {liveMatches.length} Match{liveMatches.length > 1 ? 'es' : ''} Live
             </div>
           )}
@@ -129,13 +129,13 @@ function App() {
           <button
             onClick={refetch}
             title={usingFallback ? 'Offline fallback data' : 'Connected to live server'}
-            className={`flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-xl border transition-all ${
+            className={`flex items-center gap-1 sm:gap-1.5 text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border transition-all ${
               usingFallback
                 ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20'
                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
             }`}
           >
-            {usingFallback ? <WifiOff className="h-3 w-3 animate-pulse" /> : <Wifi className="h-3 w-3" />}
+            {usingFallback ? <WifiOff className="h-2.5 w-2.5 sm:h-3 sm:w-3 animate-pulse" /> : <Wifi className="h-2.5 w-2.5 sm:h-3 sm:w-3" />}
             {usingFallback ? 'Offline Mode' : 'Live Connected'}
           </button>
         </div>
