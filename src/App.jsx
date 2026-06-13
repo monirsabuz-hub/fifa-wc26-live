@@ -91,6 +91,9 @@ function App() {
   const liveMatches = matches.filter(m => m.status === 'live');
   const finishedMatches = matches.filter(m => m.status === 'finished').slice(0, 4);
   const upcomingMatches = matches.filter(m => m.status === 'upcoming');
+  const nextUpcomingMatch = upcomingMatches.length > 0 
+    ? [...upcomingMatches].sort((a, b) => (a.kickoffTime || Infinity) - (b.kickoffTime || Infinity))[0]
+    : null;
 
   return (
     <div className="flex flex-col min-h-screen bg-sport-bg text-white selection:bg-sport-accent selection:text-black">
@@ -145,71 +148,74 @@ function App() {
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
           {/* Left Sidebar: Channel Selector */}
-          <div className="lg:col-span-2 flex flex-col gap-2">
+          <div className="lg:col-span-2 order-2 lg:order-1 flex flex-col gap-2">
             <span className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest pl-1 mb-1">
               Broadcast Feeds
             </span>
 
-            {channelsData.map(ch => {
-              const isActive = selectedChannel.id === ch.id;
-              const isDefault = ch.id === 'WorldCupTSN4.tv';
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col gap-2">
+              {channelsData.map(ch => {
+                const isActive = selectedChannel.id === ch.id;
+                const isDefault = ch.id === 'WorldCupTSN4.tv';
 
-              return (
-                <div
-                  key={ch.id}
-                  onClick={() => handleSelectChannel(ch)}
-                  className={`relative cursor-pointer rounded-xl p-3 border transition-all duration-300 flex flex-col gap-2 ${
-                    isActive
-                      ? 'bg-sport-accent/10 border-sport-accent/40 shadow-lg shadow-sport-accent/10'
-                      : 'bg-sport-card/30 border-white/5 hover:border-white/10 hover:bg-sport-card/50'
-                  }`}
-                >
-                  {/* Icon + Name */}
-                  <div className="flex items-center gap-2">
-                    <div className={`h-7 w-7 rounded-lg flex-shrink-0 flex items-center justify-center ${isActive ? 'bg-sport-accent/20' : 'bg-white/5 border border-white/5'}`}>
-                      <Tv className={`h-3.5 w-3.5 ${isActive ? 'text-sport-accent' : 'text-sport-secondary'}`} />
+                return (
+                  <div
+                    key={ch.id}
+                    onClick={() => handleSelectChannel(ch)}
+                    className={`relative cursor-pointer rounded-xl p-3 border transition-all duration-300 flex flex-col gap-2 ${
+                      isActive
+                        ? 'bg-sport-accent/10 border-sport-accent/40 shadow-lg shadow-sport-accent/10'
+                        : 'bg-sport-card/30 border-white/5 hover:border-white/10 hover:bg-sport-card/50'
+                    }`}
+                  >
+                    {/* Icon + Name */}
+                    <div className="flex items-center gap-2">
+                      <div className={`h-7 w-7 rounded-lg flex-shrink-0 flex items-center justify-center ${isActive ? 'bg-sport-accent/20' : 'bg-white/5 border border-white/5'}`}>
+                        <Tv className={`h-3.5 w-3.5 ${isActive ? 'text-sport-accent' : 'text-sport-secondary'}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-[11px] font-bold text-white tracking-wide leading-tight truncate">{ch.name}</h3>
+                        <span className="text-[8px] font-semibold text-sport-secondary uppercase tracking-wider">
+                          {ch.isIframe ? '1ball.pk' : `${ch.country || 'INT'} • ${ch.id.toLowerCase().includes('tsports') ? 'BN' : 'EN'}`}
+                        </span>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="text-[11px] font-bold text-white tracking-wide leading-tight truncate">{ch.name}</h3>
-                      <span className="text-[8px] font-semibold text-sport-secondary uppercase tracking-wider">
-                        {ch.isIframe ? '1ball.pk' : isDefault ? 'INT • EN' : 'BD • BN'}
+
+                    {/* Quality badge */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {isDefault && (
+                        <span className="text-[7px] font-black bg-sport-accent/15 text-sport-accent border border-sport-accent/25 px-1 py-0.5 rounded uppercase tracking-widest">
+                          DEFAULT
+                        </span>
+                      )}
+                      <span className={`text-[7px] font-bold px-1 py-0.5 rounded ${isActive ? 'bg-sport-accent text-black font-black' : 'bg-white/5 text-sport-secondary'}`}>
+                        {ch.isIframe ? 'WEB EMBED' : isDefault ? '4K UHD' : 'HD 1080P'}
                       </span>
                     </div>
-                  </div>
 
-                  {/* Quality badge */}
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {isDefault && (
-                      <span className="text-[7px] font-black bg-sport-accent/15 text-sport-accent border border-sport-accent/25 px-1 py-0.5 rounded uppercase tracking-widest">
-                        DEFAULT
-                      </span>
+                    {/* Active glow bottom border */}
+                    {isActive && (
+                      <div className="absolute inset-x-0 bottom-0 h-0.5 bg-sport-accent rounded-b-xl" />
                     )}
-                    <span className={`text-[7px] font-bold px-1 py-0.5 rounded ${isActive ? 'bg-sport-accent text-black font-black' : 'bg-white/5 text-sport-secondary'}`}>
-                      {ch.isIframe ? 'WEB EMBED' : isDefault ? '4K UHD' : 'HD 1080P'}
-                    </span>
                   </div>
-
-                  {/* Active glow bottom border */}
-                  {isActive && (
-                    <div className="absolute inset-x-0 bottom-0 h-0.5 bg-sport-accent rounded-b-xl" />
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Center Column: Player */}
-          <div className="lg:col-span-7">
+          <div className="lg:col-span-7 order-1 lg:order-2">
             <VideoPlayer
               channel={selectedChannel}
               onClose={null}
               isTheaterMode={false}
               onToggleTheater={null}
+              nextMatch={nextUpcomingMatch}
             />
           </div>
 
           {/* Right Column: Scoreboard */}
-          <div className="lg:col-span-3 flex flex-col gap-4 h-full">
+          <div className="lg:col-span-3 order-3 flex flex-col gap-4 h-full">
             <div className="bg-sport-card/30 border border-white/5 rounded-2xl p-4 backdrop-blur-md h-full flex flex-col justify-between">
               
               <div>

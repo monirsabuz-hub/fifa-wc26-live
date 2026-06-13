@@ -30,8 +30,8 @@
       "bangla"
     ],
     "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/T_Sports_logo.svg/320px-T_Sports_logo.svg.png",
-    "streamUrl": "https://tvsen7.aynaott.com/tsports-hd/index.m3u8",
-    "isIframe": false,
+    "streamUrl": "https://embed.st/embed-low/admin/admin-t-sports/1",
+    "isIframe": true,
     "isWorldCupBroadcaster": true,
     "latency": 1962,
     "status": 200,
@@ -51,6 +51,23 @@
     "isIframe": false,
     "isWorldCupBroadcaster": true,
     "latency": 1100,
+    "status": 200,
+    "http_referrer": null,
+    "user_agent": null
+  },
+  {
+    "id": "FoxSports1.us",
+    "name": "Fox Sports 1",
+    "country": "US",
+    "categories": [
+      "sports",
+      "fifa-26"
+    ],
+    "logo": "https://i.imgur.com/O9BapV9.png",
+    "streamUrl": "http://190.11.225.124:5000/live/fs1_hd/playlist.m3u8",
+    "isIframe": false,
+    "isWorldCupBroadcaster": true,
+    "latency": 950,
     "status": 200,
     "http_referrer": null,
     "user_agent": null

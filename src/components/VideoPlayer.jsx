@@ -1,12 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Volume2, VolumeX, Maximize2, Activity, RefreshCw, Info, X, ShieldAlert, Tv, Settings } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize2, Minimize2, Activity, RefreshCw, Info, X, ShieldAlert, Tv, Settings } from 'lucide-react';
+import MatchCountdown from './MatchCountdown';
 
-const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
+const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMatch }) => {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const shakaRef = useRef(null);
+  const containerRef = useRef(null);
+  const controlsTimeoutRef = useRef(null);
+
+  const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const loadShakaPlayer = () => {
     return new Promise((resolve, reject) => {
@@ -47,6 +53,54 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
   const [copied, setCopied] = useState(false);
   const [useProxy, setUseProxy] = useState(true);
 
+  const resetControlsTimeout = () => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  };
+
+  useEffect(() => {
+    if (showControls && isPlaying) {
+      resetControlsTimeout();
+    }
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [showControls, isPlaying]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      setIsFullscreen(isFull);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleContainerClick = (e) => {
+    if (e.target.closest('button, input, [role="button"], .no-toggle')) {
+      resetControlsTimeout();
+      return;
+    }
+    setShowControls(prev => !prev);
+  };
+
   useEffect(() => {
     if (channel) {
       setLogoUrl(channel.logo && channel.logo.trim().length > 0 ? channel.logo : null);
@@ -58,6 +112,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
     setCurrentLevelIndex(-1);
     setActiveLevelIndex(-1);
     setShowQualityMenu(false);
+    setShowControls(true);
   }, [channel]);
 
   useEffect(() => {
@@ -74,6 +129,21 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
 
   const handleLogoError = () => {
     setLogoUrl(null);
+  };
+
+  const renderHeaderFlag = (flag, className = "h-3.5 w-5 object-cover rounded-sm border border-white/10") => {
+    if (!flag) return null;
+    if (typeof flag === 'string' && flag.startsWith('http')) {
+      return (
+        <img
+          src={flag}
+          alt=""
+          className={className}
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+      );
+    }
+    return <span className="text-[10px]">{flag}</span>;
   };
 
   useEffect(() => {
@@ -493,9 +563,14 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
     if (isPlaying) {
       video.pause();
       setIsPlaying(false);
+      setShowControls(true);
     } else {
       video.play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          setIsPlaying(true);
+          setShowControls(true);
+          resetControlsTimeout();
+        })
         .catch(() => setIsPlaying(false));
     }
   };
@@ -525,15 +600,31 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
   };
 
   const toggleFullscreen = () => {
-    const video = videoRef.current;
-    if (!video) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    if (video.requestFullscreen) {
-      video.requestFullscreen();
-    } else if (video.webkitRequestFullscreen) {
-      video.webkitRequestFullscreen();
-    } else if (video.msRequestFullscreen) {
-      video.msRequestFullscreen();
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      if (container.requestFullscreen) {
+        container.requestFullscreen();
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      } else if (container.mozRequestFullScreen) {
+        container.mozRequestFullScreen();
+      } else if (container.msRequestFullscreen) {
+        container.msRequestFullscreen();
+      } else if (videoRef.current && videoRef.current.webkitEnterFullscreen) {
+        videoRef.current.webkitEnterFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
     }
   };
 
@@ -632,11 +723,11 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
   }
 
   return (
-    <div className="w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-3 sm:gap-4">
       {/* Player Header */}
-      <div className="flex justify-between items-center bg-sport-card/40 border border-white/5 px-4 py-3 rounded-xl backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/5 border border-white/5 p-1.5 flex items-center justify-center">
+      <div className="flex justify-between items-center bg-sport-card/40 border border-white/5 px-3 py-2 sm:px-4 sm:py-3 rounded-xl backdrop-blur-md">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-white/5 border border-white/5 p-1 sm:p-1.5 flex-shrink-0 flex items-center justify-center">
             {logoUrl ? (
               <img 
                 src={logoUrl} 
@@ -645,18 +736,46 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
                 onError={handleLogoError}
               />
             ) : (
-              <Tv className="h-4.5 w-4.5 text-white/20" />
+              <Tv className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white/20" />
             )}
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white leading-none tracking-wide">{channel.name}</h3>
-            <span className="text-[10px] font-bold text-sport-secondary uppercase tracking-wider mt-1 block">
+          <div className="min-w-0">
+            <h3 className="text-xs sm:text-sm font-bold text-white leading-tight tracking-wide truncate">{channel.name}</h3>
+            <span className="text-[8px] sm:text-[10px] font-bold text-sport-secondary uppercase tracking-wider mt-0.5 sm:mt-1 block truncate">
               {channel.country ? channel.country : 'GLOBAL'} • {channel.languages?.[0]?.toUpperCase() || 'ENG'}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Next Match Banner (Middle Area) */}
+        {nextMatch && (
+          <div className="hidden md:flex items-center gap-3 bg-white/5 border border-white/5 px-3 py-1.5 rounded-full text-[10px] font-bold mx-4 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <span className="text-sport-secondary/70 uppercase text-[8px] font-black tracking-wider">Next Match:</span>
+              <div className="flex items-center gap-1 text-white">
+                {renderHeaderFlag(nextMatch.homeFlag, "h-3 w-4.5 object-cover rounded-sm border border-white/10")}
+                <span className="font-extrabold">{nextMatch.homeTeam}</span>
+              </div>
+              <span className="text-sport-secondary/40 font-black font-mono">vs</span>
+              <div className="flex items-center gap-1 text-white">
+                {renderHeaderFlag(nextMatch.awayFlag, "h-3 w-4.5 object-cover rounded-sm border border-white/10")}
+                <span className="font-extrabold">{nextMatch.awayTeam}</span>
+              </div>
+            </div>
+            
+            <div className="h-3.5 w-px bg-white/10" />
+            
+            <div className="flex items-center gap-1 text-amber-400 font-black">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400"></span>
+              </span>
+              <MatchCountdown kickoffTime={nextMatch.kickoffTime} className="font-mono text-[10px] tracking-wide" />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {!channel?.isIframe && (
             <>
               {/* CORS Proxy Toggle */}
@@ -666,7 +785,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
                   setErrorMsg(null);
                   setIsLoading(true);
                 }} 
-                className={`text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-2 rounded-lg border transition-all cursor-pointer ${
+                className={`text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg border transition-all cursor-pointer ${
                   useProxy
                     ? 'bg-sport-accent/10 border-sport-accent/20 text-sport-accent'
                     : 'bg-white/5 border-white/5 text-sport-secondary hover:text-white hover:border-white/10'
@@ -678,36 +797,54 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
 
               <button 
                 onClick={() => setShowStats(!showStats)} 
-                className={`p-2 rounded-lg border transition-all ${
+                className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
                   showStats ? 'bg-sport-accent/10 border-sport-accent/20 text-sport-accent' : 'bg-white/5 border-white/5 text-sport-secondary hover:text-white'
                 }`}
                 title="Toggle Stream Diagnostics"
               >
-                <Activity className="h-4 w-4" />
+                <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
               <button 
                 onClick={reloadStream} 
-                className="p-2 rounded-lg bg-white/5 border border-white/5 text-sport-secondary hover:text-white transition-all"
+                className="p-1.5 sm:p-2 rounded-lg bg-white/5 border border-white/5 text-sport-secondary hover:text-white transition-all"
                 title="Reload Feed"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </>
           )}
           {onClose && (
             <button 
               onClick={onClose} 
-              className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black transition-all ml-1"
+              className="p-1.5 sm:p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black transition-all ml-0.5"
               title="Close Player"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           )}
         </div>
       </div>
 
       {/* Screen Player */}
-      <div className="relative w-full aspect-video rounded-2xl bg-black overflow-hidden border border-white/5 shadow-2xl group">
+      <div 
+        ref={containerRef}
+        className={`relative w-full aspect-video bg-black overflow-hidden shadow-2xl group transition-all duration-300 ${
+          isFullscreen ? 'rounded-none border-0' : 'rounded-2xl border border-white/5'
+        }`}
+        onClick={handleContainerClick}
+        onMouseEnter={() => {
+          setShowControls(true);
+        }}
+        onMouseMove={() => {
+          setShowControls(true);
+          resetControlsTimeout();
+        }}
+        onMouseLeave={() => {
+          if (isPlaying) {
+            setShowControls(false);
+          }
+        }}
+      >
         {channel?.isIframe ? (
           <iframe
             src={channel.streamUrl}
@@ -722,28 +859,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
             className="w-full h-full object-contain"
             playsInline
             preload="auto"
-            onClick={togglePlay}
           />
-        )}
-
-        {/* Play Button Overlay (when autoplay is blocked or paused) */}
-        {!channel?.isIframe && !isPlaying && !isLoading && !errorMsg && (
-          <div 
-            onClick={togglePlay}
-            className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/45 cursor-pointer transition-all duration-300 z-10"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              whileHover={{ scale: 1.1 }}
-              className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-sport-accent text-black flex items-center justify-center shadow-2xl shadow-sport-accent/40 cursor-pointer"
-            >
-              <Play className="h-8 w-8 md:h-10 md:w-10 fill-current translate-x-0.5" />
-            </motion.div>
-            <div className="absolute bottom-16 text-center text-[10px] md:text-xs font-black text-white uppercase tracking-widest pointer-events-none bg-black/60 px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-              Click to Start Stream
-            </div>
-          </div>
         )}
 
         {/* Loading Overlay */}
@@ -844,7 +960,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="absolute top-4 right-4 bg-[#050B14]/95 border border-sport-accent/30 p-4 rounded-xl font-mono text-[10px] text-sport-accent z-10 shadow-2xl flex flex-col gap-2 min-w-[200px]"
+              className="absolute top-4 right-4 bg-[#050B14]/95 border border-sport-accent/30 p-4 rounded-xl font-mono text-[10px] text-sport-accent z-35 shadow-2xl flex flex-col gap-2 min-w-[200px] no-toggle"
             >
               <div className="border-b border-sport-accent/20 pb-1.5 font-bold tracking-wider flex items-center gap-1.5">
                 <Info className="h-3 w-3" /> STREAM DIAGNOSTICS
@@ -861,130 +977,179 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater }) => {
           )}
         </AnimatePresence>
 
-        {/* Custom HUD Overlays controls */}
+        {/* Controls Overlay Background Dim */}
         {!channel?.isIframe && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-3 z-10 justify-end">
-          <div className="flex justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={togglePlay} 
-                className="text-white hover:text-sport-accent transition-colors p-1"
-                title={isPlaying ? "Pause" : "Play"}
-              >
-                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current" />}
-              </button>
+          <div 
+            className={`absolute inset-0 bg-black/55 backdrop-blur-[0.5px] transition-opacity duration-300 z-10 pointer-events-none ${
+              showControls ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        )}
 
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={toggleMute} 
-                  className="text-white hover:text-sport-accent transition-colors p-1"
-                  title={isMuted ? "Unmute" : "Mute"}
-                >
-                  {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-16 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-sport-accent"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold bg-sport-accent text-black px-2 py-0.5 rounded uppercase animate-pulse">
-                LIVE
-              </span>
-
-              {/* Quality Settings Dropdown */}
-              {levels.length > 1 && (
-                <div className="relative">
-                  <button
+        {/* Centered Controls Overlay (YouTube style) */}
+        {!channel?.isIframe && !isLoading && !errorMsg && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+            <AnimatePresence>
+              {showControls && (
+                <div className="flex flex-col items-center gap-3">
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowQualityMenu(!showQualityMenu);
+                      togglePlay();
                     }}
-                    className="flex items-center gap-1 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg transition-all"
-                    title="Change Stream Quality"
+                    className="pointer-events-auto h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-black/60 hover:bg-black/85 text-white hover:text-sport-accent flex items-center justify-center border border-white/15 hover:border-sport-accent/40 shadow-2xl transition-all cursor-pointer no-toggle"
                   >
-                    <Settings className="h-3.5 w-3.5 text-sport-secondary" />
-                    <span>{getCurrentQualityLabel()}</span>
-                  </button>
-
-                  <AnimatePresence>
-                    {showQualityMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="absolute bottom-full right-0 mb-2 bg-[#050B14]/95 border border-white/10 rounded-xl p-1.5 flex flex-col gap-0.5 z-30 shadow-2xl min-w-[120px]"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <span className="text-[8px] font-extrabold text-sport-secondary tracking-widest uppercase block px-2.5 py-1 border-b border-white/5 mb-1 text-center">
-                          Quality
-                        </span>
-                        {levels.map((lvl) => {
-                          const isSelected = activeLevelIndex === lvl.index;
-                          return (
-                            <button
-                              key={lvl.index}
-                              onClick={() => handleQualityChange(lvl.index)}
-                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all flex justify-between items-center ${
-                                isSelected
-                                  ? 'bg-sport-accent/15 text-sport-accent'
-                                  : 'text-sport-secondary hover:bg-white/5 hover:text-white'
-                              }`}
-                            >
-                              <span>{lvl.label}</span>
-                              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-sport-accent" />}
-                            </button>
-                          );
-                        })}
-                      </motion.div>
+                    {isPlaying ? (
+                      <Pause className="h-5 w-5 sm:h-6 sm:w-6 fill-current" />
+                    ) : (
+                      <Play className="h-5 w-5 sm:h-6 sm:w-6 fill-current translate-x-0.5" />
                     )}
-                  </AnimatePresence>
+                  </motion.button>
+                  
+                  {!isPlaying && (
+                    <motion.span
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[9px] sm:text-[10px] font-black text-white bg-black/60 px-2.5 py-1 rounded-full border border-white/10 tracking-widest uppercase"
+                    >
+                      Click to Start Stream
+                    </motion.span>
+                  )}
                 </div>
               )}
-              {onToggleTheater && (
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Custom HUD Overlays controls */}
+        {!channel?.isIframe && (
+          <div className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent p-3 sm:p-4 transition-opacity duration-300 flex flex-col gap-3 z-20 justify-end ${
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}>
+            <div className="flex justify-between items-center gap-4">
+              <div className="flex items-center gap-3">
                 <button 
-                  onClick={onToggleTheater} 
-                  className="text-white hover:text-sport-accent transition-colors p-1 hidden lg:block"
-                  title={isTheaterMode ? "Default View" : "Theater Mode"}
+                  onClick={togglePlay} 
+                  className="text-white hover:text-sport-accent transition-colors p-1.5 sm:p-1 cursor-pointer no-toggle"
+                  title={isPlaying ? "Pause" : "Play"}
                 >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    {isTheaterMode ? (
-                      <rect x="4" y="6" width="16" height="12" rx="2" ry="2" />
-                    ) : (
-                      <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-                    )}
-                  </svg>
+                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current" />}
                 </button>
-              )}
-              {isPipSupported && (
-                <button
-                  onClick={togglePip}
-                  className="text-white hover:text-sport-accent transition-colors p-1"
-                  title="Picture-in-Picture"
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={toggleMute} 
+                    className="text-white hover:text-sport-accent transition-colors p-1.5 sm:p-1 cursor-pointer no-toggle"
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="hidden sm:block w-16 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-sport-accent no-toggle"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold bg-sport-accent text-black px-2 py-0.5 rounded uppercase animate-pulse">
+                  LIVE
+                </span>
+
+                {/* Quality Settings Dropdown */}
+                {levels.length > 1 && (
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowQualityMenu(!showQualityMenu);
+                      }}
+                      className="flex items-center gap-1 bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white font-bold text-[9px] sm:text-[10px] px-2.5 py-1.5 rounded-lg transition-all cursor-pointer no-toggle"
+                      title="Change Stream Quality"
+                    >
+                      <Settings className="h-3.5 w-3.5 text-sport-secondary" />
+                      <span>{getCurrentQualityLabel()}</span>
+                    </button>
+
+                    <AnimatePresence>
+                      {showQualityMenu && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute bottom-full right-0 mb-2 bg-[#050B14]/95 border border-white/10 rounded-xl p-1.5 flex flex-col gap-0.5 z-30 shadow-2xl min-w-[130px] no-toggle"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[9px] font-extrabold text-sport-secondary tracking-widest uppercase block px-3 py-1.5 border-b border-white/5 mb-1.5 text-center">
+                            Quality Settings
+                          </span>
+                          {levels.map((lvl) => {
+                            const isSelected = activeLevelIndex === lvl.index;
+                            return (
+                              <button
+                                key={lvl.index}
+                                onClick={() => handleQualityChange(lvl.index)}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex justify-between items-center cursor-pointer no-toggle ${
+                                  isSelected
+                                    ? 'bg-sport-accent/15 text-sport-accent'
+                                    : 'text-sport-secondary hover:bg-white/5 hover:text-white'
+                                }` }
+                              >
+                                <span>{lvl.label}</span>
+                                {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-sport-accent" />}
+                              </button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+                {onToggleTheater && (
+                  <button 
+                    onClick={onToggleTheater} 
+                    className="text-white hover:text-sport-accent transition-colors p-1.5 sm:p-1 hidden lg:block cursor-pointer no-toggle"
+                    title={isTheaterMode ? "Default View" : "Theater Mode"}
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {isTheaterMode ? (
+                        <rect x="4" y="6" width="16" height="12" rx="2" ry="2" />
+                      ) : (
+                        <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+                      )}
+                    </svg>
+                  </button>
+                )}
+                {isPipSupported && (
+                  <button
+                    onClick={togglePip}
+                    className="text-white hover:text-sport-accent transition-colors p-1.5 sm:p-1 cursor-pointer no-toggle"
+                    title="Picture-in-Picture"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 4.5h11.5a1.5 1.5 0 0 1 1.5 1.5v11.5a1.5 1.5 0 0 1-1.5 1.5H8a1.5 1.5 0 0 1-1.5-1.5V6a1.5 1.5 0 0 1 1.5-1.5z" />
+                      <path d="M13 10.5h5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z" />
+                    </svg>
+                  </button>
+                )}
+                <button 
+                  onClick={toggleFullscreen} 
+                  className="text-white hover:text-sport-accent transition-colors p-1.5 sm:p-1 cursor-pointer no-toggle"
+                  title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M8 4.5h11.5a1.5 1.5 0 0 1 1.5 1.5v11.5a1.5 1.5 0 0 1-1.5 1.5H8a1.5 1.5 0 0 1-1.5-1.5V6a1.5 1.5 0 0 1 1.5-1.5z" />
-                    <path d="M13 10.5h5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z" />
-                  </svg>
+                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
-              )}
-              <button 
-                onClick={toggleFullscreen} 
-                className="text-white hover:text-sport-accent transition-colors p-1"
-                title="Fullscreen"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
+              </div>
             </div>
           </div>
-        </div>
         )}
       </div>
     </div>

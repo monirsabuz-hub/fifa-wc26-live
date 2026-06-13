@@ -166,29 +166,39 @@ export function useWorldCupData() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [gamesJson, teamsJson] = await Promise.all([
+      const [gamesData, teamsData] = await Promise.all([
         fetchJSON(GAMES_URL, DIRECT_GAMES_URL),
-        fetchJSON(TEAMS_URL, DIRECT_TEAMS_URL),
+        fetchJSON(TEAMS_URL, DIRECT_TEAMS_URL)
       ]);
 
-      const rawGames = gamesJson.games || [];
-      const rawTeams = teamsJson.teams || [];
+      if (gamesData?.games && teamsData?.teams) {
+        const teamMap = buildTeamMap(teamsData.teams);
+        const normalized = gamesData.games.map(game => normalizeGame(game, teamMap));
 
-      const teamMap = buildTeamMap(rawTeams);
-      const normalized = rawGames.map(g => normalizeGame(g, teamMap));
+        // Sort matches: live first, then upcoming, then finished
+        normalized.sort((a, b) => {
+          const statusOrder = { live: 0, upcoming: 1, finished: 2 };
+          return statusOrder[a.status] - statusOrder[b.status];
+        });
 
-      setTeams(rawTeams);
-      setMatches(normalized);
-      setUsingFallback(false);
-      setError(null);
-    } catch (err) {
-      console.warn('[useWorldCupData] API fetch failed, using fallback:', err.message);
-      if (matches.length === 0) {
-        // Only fall back on initial load failure
-        setMatches(buildFallbackMatches());
-        setUsingFallback(true);
+        setMatches(normalized);
+        setTeams(teamsData.teams);
+        setUsingFallback(false);
+        setError(null);
+      } else {
+        throw new Error("Invalid API response format");
       }
-      setError(err.message);
+    } catch (err) {
+      console.warn('[useWorldCupData] Failed to fetch live data, using offline fallback:', err.message);
+      try {
+        const localMatches = buildFallbackMatches();
+        setMatches(localMatches);
+        setUsingFallback(true);
+        setError(null);
+      } catch (fallbackErr) {
+        console.error('[useWorldCupData] Fallback parsing failed:', fallbackErr.message);
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
