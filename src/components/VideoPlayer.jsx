@@ -82,6 +82,23 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     const handleFullscreenChange = () => {
       const isFull = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
       setIsFullscreen(isFull);
+
+      if (isFull) {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          window.screen.orientation.lock('landscape')
+            .catch((err) => {
+              console.log('Screen orientation lock failed:', err.message);
+            });
+        }
+      } else {
+        if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+          try {
+            window.screen.orientation.unlock();
+          } catch (err) {
+            console.log('Screen orientation unlock failed:', err.message);
+          }
+        }
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
