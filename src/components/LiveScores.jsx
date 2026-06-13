@@ -87,7 +87,9 @@ const LiveScores = ({ onSelectChannel, channels, matches = [] }) => {
               {match.status === 'live' ? (
                 <span className="text-sport-accent flex items-center gap-1 animate-pulse">
                   <span className="h-1.5 w-1.5 rounded-full bg-sport-accent inline-block"></span>
-                  LIVE {match.minute}
+                  {match.minute && match.minute.toLowerCase().includes('live')
+                    ? match.minute
+                    : `LIVE ${match.minute || ''}`}
                 </span>
               ) : (
                 <span className="text-sport-secondary">{match.dateTime || match.time}</span>

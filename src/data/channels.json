@@ -15,6 +15,7 @@
       }
     },
     "isWorldCupBroadcaster": true,
+    "bypassProxy": true,
     "latency": 1200,
     "status": 200,
     "http_referrer": null,
@@ -30,7 +31,7 @@
       "bangla"
     ],
     "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/T_Sports_logo.svg/320px-T_Sports_logo.svg.png",
-    "streamUrl": "https://embed.st/embed-low/admin/admin-t-sports/1",
+    "streamUrl": "/cors-proxy/https/embed.st/embed-low/admin/admin-t-sports/1",
     "isIframe": true,
     "isWorldCupBroadcaster": true,
     "latency": 1962,
@@ -51,74 +52,6 @@
     "isIframe": false,
     "isWorldCupBroadcaster": true,
     "latency": 1100,
-    "status": 200,
-    "http_referrer": null,
-    "user_agent": null
-  },
-  {
-    "id": "FoxSports1.us",
-    "name": "Fox Sports 1",
-    "country": "US",
-    "categories": [
-      "sports",
-      "fifa-26"
-    ],
-    "logo": "https://i.imgur.com/O9BapV9.png",
-    "streamUrl": "http://190.11.225.124:5000/live/fs1_hd/playlist.m3u8",
-    "isIframe": false,
-    "isWorldCupBroadcaster": true,
-    "latency": 950,
-    "status": 200,
-    "http_referrer": null,
-    "user_agent": null
-  },
-  {
-    "id": "1ball-stream-1",
-    "name": "World Cup Stream 1 (1ball)",
-    "country": "PK",
-    "categories": [
-      "sports",
-      "fifa-26"
-    ],
-    "logo": "https://1ball.pk/static/favicon.svg",
-    "streamUrl": "https://embed.st/embed-low/golf/23121/1",
-    "isIframe": true,
-    "isWorldCupBroadcaster": true,
-    "latency": 0,
-    "status": 200,
-    "http_referrer": null,
-    "user_agent": null
-  },
-  {
-    "id": "1ball-stream-2",
-    "name": "World Cup Stream 2 (1ball)",
-    "country": "PK",
-    "categories": [
-      "sports",
-      "fifa-26"
-    ],
-    "logo": "https://1ball.pk/static/favicon.svg",
-    "streamUrl": "https://embed.st/embed-low/golf/22983/1",
-    "isIframe": true,
-    "isWorldCupBroadcaster": true,
-    "latency": 0,
-    "status": 200,
-    "http_referrer": null,
-    "user_agent": null
-  },
-  {
-    "id": "1ball-stream-3",
-    "name": "World Cup Stream 3 (1ball)",
-    "country": "PK",
-    "categories": [
-      "sports",
-      "fifa-26"
-    ],
-    "logo": "https://1ball.pk/static/favicon.svg",
-    "streamUrl": "https://embed.st/embed-low/golf/22983/2",
-    "isIframe": true,
-    "isWorldCupBroadcaster": true,
-    "latency": 0,
     "status": 200,
     "http_referrer": null,
     "user_agent": null

@@ -37,6 +37,10 @@ export default defineConfig({
                   headers['User-Agent'] = 'https://github.com/byte-capsule (Linux;Android 14)';
                   headers['Host'] = 'live.tsports.com';
                 }
+                if (finalUrl.includes('embed.st') || finalUrl.includes('embedindia.st')) {
+                  headers['Referer'] = 'https://1ball.pk/';
+                  headers['Origin'] = 'https://1ball.pk';
+                }
                 const response = await fetch(finalUrl, {
                   method: req.method,
                   headers

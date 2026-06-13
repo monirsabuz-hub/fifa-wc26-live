@@ -29,7 +29,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
   };
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(0.8);
   const [showStats, setShowStats] = useState(false);
   const [stats, setStats] = useState({
@@ -41,6 +41,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
   });
   const [errorMsg, setErrorMsg] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false);
   const [logoUrl, setLogoUrl] = useState(null);
   const [levels, setLevels] = useState([]);
   const [currentLevelIndex, setCurrentLevelIndex] = useState(-1);
@@ -113,6 +114,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     setActiveLevelIndex(-1);
     setShowQualityMenu(false);
     setShowControls(true);
+    setHasStartedPlaying(false);
   }, [channel]);
 
   useEffect(() => {
@@ -158,6 +160,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     setErrorMsg(null);
     setIsPlaying(false);
     setIsLoading(true);
+    setHasStartedPlaying(false);
 
     let streamUrl = customStreamUrl || channel.streamUrl;
     const shouldProxy = useProxy && !channel.bypassProxy;
@@ -188,6 +191,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     };
     const handlePlaying = () => {
       setIsLoading(false);
+      setHasStartedPlaying(true);
       setShowCorsHelper(false);
       clearTimeout(loadingTimeout);
     };
@@ -250,22 +254,33 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
           shakaRef.current = player;
           shakaPlayerInstance = player;
 
-          // Configure ClearKey DRM if present
-          if (channel.drm && channel.drm.clearKeys) {
-            player.configure({
-              drm: {
-                clearKeys: channel.drm.clearKeys,
-                keySystemsMapping: {
-                  'com.widevine.alpha': 'org.w3.clearkey'
-                }
-              },
-              manifest: {
-                dash: {
-                  ignoreDrmInfo: true
-                }
+          // Configure Shaka Player for fast initial loading & low latency DASH streaming
+          const shakaConfig = {
+            streaming: {
+              bufferingGoal: 4,          // Reduces start latency by playing when 4s of video is loaded (default 10s)
+              rebufferingGoal: 2,        // Recovers from buffer stalls faster (default 5s)
+              lowLatencyMode: true,      // Tells player to optimize for lower end-to-end latency
+              jumpLargeGaps: true,       // Skip gap segments automatically
+            },
+            manifest: {
+              dash: {
+                autoCorrectDrift: true,   // Adjusts live stream time drift
+                ignoreDrmInfo: true       // Skips trying to parse default DRM systems if not required
               }
-            });
+            }
+          };
+
+          // Merge ClearKey DRM configuration if present
+          if (channel.drm && channel.drm.clearKeys) {
+            shakaConfig.drm = {
+              clearKeys: channel.drm.clearKeys,
+              keySystemsMapping: {
+                'com.widevine.alpha': 'org.w3.clearkey'
+              }
+            };
           }
+
+          player.configure(shakaConfig);
 
           player.addEventListener('error', (event) => {
             console.error('Shaka player error:', event.detail);
@@ -629,6 +644,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
   };
 
   const reloadStream = () => {
+    setHasStartedPlaying(false);
     if (hlsRef.current && channel) {
       setErrorMsg('Reloading stream...');
       let url = channel.streamUrl;
@@ -859,95 +875,139 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
             className="w-full h-full object-contain"
             playsInline
             preload="auto"
+            autoPlay
+            muted={isMuted}
           />
         )}
 
-        {/* Loading Overlay */}
+        {/* Loading & Buffering Overlays */}
         <AnimatePresence>
-          {(isLoading || errorMsg) && (
+          {/* 1. Critical Error Overlay (Always dark and blocks player interaction) */}
+          {errorMsg && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-20"
+              className="absolute inset-0 bg-[#050B14]/95 backdrop-blur-md flex items-center justify-center z-25 pointer-events-auto"
             >
               <div className="text-center p-6 flex flex-col items-center w-full h-full max-h-[85%] overflow-y-auto no-scrollbar">
-                {errorMsg ? (
-                  <div className="flex flex-col items-center max-w-md bg-[#050B14]/90 border border-white/10 p-6 rounded-2xl shadow-2xl mx-4 my-2">
-                    <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4">
-                      <ShieldAlert className="h-6 w-6" />
-                    </div>
-                    <h4 className="text-sm font-extrabold text-white uppercase tracking-wider mb-2">Stream Playback Blocked / Offline</h4>
-                    <p className="text-[11px] text-sport-secondary leading-relaxed mb-4 text-center">
-                      Public IPTV feeds frequently restrict embedding on third-party sites due to **CORS (Cross-Origin Resource Sharing)** security policies or geoblocks.
-                    </p>
-
-                    {/* Copy Link Input group */}
-                    <div className="w-full flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-2 rounded-xl mb-4 text-left">
-                      <input 
-                        type="text" 
-                        readOnly 
-                        value={channel.streamUrl} 
-                        className="bg-transparent text-[10px] text-sport-secondary outline-none flex-1 font-mono truncate"
-                      />
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(channel.streamUrl);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className="bg-sport-accent/15 hover:bg-sport-accent text-sport-accent hover:text-black text-[9px] font-bold px-2.5 py-1 rounded transition-all duration-300"
-                      >
-                        {copied ? 'COPIED!' : 'COPY URL'}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2.5 justify-center w-full">
-                      <button 
-                        onClick={() => window.open(channel.streamUrl, '_blank')} 
-                        className="bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
-                      >
-                        OPEN IN NEW TAB
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setCustomStreamUrl('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
-                          setErrorMsg(null);
-                          setIsLoading(true);
-                        }} 
-                        className="bg-sport-accent hover:bg-sport-accent/90 text-black font-extrabold text-[10px] px-4 py-2 rounded-lg shadow-lg shadow-sport-accent/10 transition-all"
-                      >
-                        PLAY TEST DEMO
-                      </button>
-                      <button 
-                        onClick={reloadStream} 
-                        className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
-                      >
-                        RETRY
-                      </button>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-white/5 w-full text-left">
-                      <span className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest block mb-1">Alternative Playback Options:</span>
-                      <ul className="list-disc list-inside text-[9px] text-sport-secondary/80 space-y-1">
-                        <li>Copy the URL above and stream it in **VLC Media Player** (Open Network Stream).</li>
-                        <li>Install a browser extension like **"Allow CORS: Access-Control-Allow-Origin"** and toggle it on to play all feeds directly.</li>
-                      </ul>
-                    </div>
+                <div className="flex flex-col items-center max-w-md bg-[#050B14]/90 border border-white/10 p-6 rounded-2xl shadow-2xl mx-4 my-2">
+                  <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4">
+                    <ShieldAlert className="h-6 w-6" />
                   </div>
-                ) : (
-                  <>
-                    <RefreshCw className="h-10 w-10 text-sport-accent animate-spin mb-4" />
-                    <p className="text-xs font-bold text-white tracking-widest uppercase">TUNING STREAM...</p>
-                    <p className="text-[10px] text-sport-secondary mt-1.5 max-w-xs font-semibold">
-                      Establishing handshake connection to {channel.name}
-                    </p>
-                    {customStreamUrl && (
-                      <span className="text-[9px] text-sport-accent/80 font-bold mt-2 uppercase tracking-wider animate-pulse">Loading CORS-enabled Test Demo</span>
-                    )}
-                  </>
+                  <h4 className="text-sm font-extrabold text-white uppercase tracking-wider mb-2">Stream Playback Blocked / Offline</h4>
+                  <p className="text-[11px] text-sport-secondary leading-relaxed mb-4 text-center">
+                    Public IPTV feeds frequently restrict embedding on third-party sites due to **CORS (Cross-Origin Resource Sharing)** security policies or geoblocks.
+                  </p>
+
+                  {/* Copy Link Input group */}
+                  <div className="w-full flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-2 rounded-xl mb-4 text-left">
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={channel.streamUrl} 
+                      className="bg-transparent text-[10px] text-sport-secondary outline-none flex-1 font-mono truncate"
+                    />
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(channel.streamUrl);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="bg-sport-accent/15 hover:bg-sport-accent text-sport-accent hover:text-black text-[9px] font-bold px-2.5 py-1 rounded transition-all duration-300"
+                    >
+                      {copied ? 'COPIED!' : 'COPY URL'}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5 justify-center w-full">
+                    <button 
+                      onClick={() => window.open(channel.streamUrl, '_blank')} 
+                      className="bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
+                    >
+                      OPEN IN NEW TAB
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setCustomStreamUrl('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
+                        setErrorMsg(null);
+                        setIsLoading(true);
+                      }} 
+                      className="bg-sport-accent hover:bg-sport-accent/90 text-black font-extrabold text-[10px] px-4 py-2 rounded-lg shadow-lg shadow-sport-accent/10 transition-all"
+                    >
+                      PLAY TEST DEMO
+                    </button>
+                    <button 
+                      onClick={reloadStream} 
+                      className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
+                    >
+                      RETRY
+                    </button>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-white/5 w-full text-left">
+                    <span className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest block mb-1">Alternative Playback Options:</span>
+                    <ul className="list-disc list-inside text-[9px] text-sport-secondary/80 space-y-1">
+                      <li>Copy the URL above and stream it in **VLC Media Player** (Open Network Stream).</li>
+                      <li>Install a browser extension like **"Allow CORS: Access-Control-Allow-Origin"** and toggle it on to play all feeds directly.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* 2. Initial Loading Overlay (Dark, Glassmorphic, shown when not started playing yet) */}
+          {isLoading && !hasStartedPlaying && !errorMsg && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#050B14]/90 backdrop-blur-md flex items-center justify-center z-20 pointer-events-none"
+            >
+              <div className="text-center p-6 flex flex-col items-center justify-center">
+                {/* Premium concentric loader */}
+                <div className="relative h-16 w-16 mb-6 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-4 border-white/5" />
+                  <div className="absolute inset-0 rounded-full border-4 border-t-sport-accent border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                  <div className="absolute inset-2 rounded-full border-4 border-white/5" />
+                  <div className="absolute inset-2 rounded-full border-4 border-b-sport-secondary border-t-transparent border-r-transparent border-l-transparent animate-[spin_1.5s_linear_infinite_reverse]" />
+                  <Tv className="h-5 w-5 text-white/40 absolute" />
+                </div>
+                <h4 className="text-xs font-black text-white tracking-[0.2em] uppercase">Tuning Live Feed</h4>
+                <p className="text-[10px] text-sport-secondary mt-2 max-w-[240px] font-medium leading-relaxed">
+                  Establishing secure handshake connection to <span className="text-white font-bold">{channel.name}</span>
+                </p>
+                {customStreamUrl && (
+                  <span className="text-[9px] text-sport-accent/80 font-bold mt-3 uppercase tracking-wider animate-pulse bg-sport-accent/10 px-2 py-0.5 rounded border border-sport-accent/20">
+                    CORS Test Demo Mode
+                  </span>
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* 3. Mid-stream Buffering Overlay (Semi-transparent, preserves video visibility underneath) */}
+          {isLoading && hasStartedPlaying && !errorMsg && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/30 backdrop-blur-[0.5px] flex items-center justify-center z-20 pointer-events-none"
+            >
+              <div className="text-center bg-black/60 px-5 py-4 rounded-2xl border border-white/10 backdrop-blur-md flex flex-col items-center shadow-2xl max-w-[180px]">
+                {/* Micro double-ring spinner */}
+                <div className="relative h-10 w-10 mb-3 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-[3px] border-white/5" />
+                  <div className="absolute inset-0 rounded-full border-[3px] border-t-sport-accent border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                  <div className="absolute inset-1.5 rounded-full border-[3px] border-white/5" />
+                  <div className="absolute inset-1.5 rounded-full border-[3px] border-b-sport-secondary border-t-transparent border-r-transparent border-l-transparent animate-[spin_1.2s_linear_infinite_reverse]" />
+                </div>
+                <span className="text-[10px] font-black text-white uppercase tracking-wider block">Buffering</span>
+                <span className="text-[8px] font-bold text-sport-secondary/80 mt-1 block">
+                  {stats.bufferLength !== 'N/A' ? `Buffer: ${stats.bufferLength}` : 'Reconnecting...'}
+                </span>
               </div>
             </motion.div>
           )}

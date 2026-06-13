@@ -180,7 +180,9 @@ const HeroBanner = ({ onSelectChannel, channels, favorites, onToggleFavorite, ma
               </div>
               {heroMatch.status === 'live' ? (
                 <div className="text-[10px] text-sport-accent font-bold animate-pulse mt-2.5">
-                  MINUTE {heroMatch.minute}
+                  {heroMatch.minute && heroMatch.minute.toLowerCase().includes('live')
+                    ? heroMatch.minute.toUpperCase()
+                    : `MINUTE ${heroMatch.minute || ''}`}
                 </div>
               ) : (
                 <div className="text-[10px] text-sport-secondary font-bold mt-2.5">

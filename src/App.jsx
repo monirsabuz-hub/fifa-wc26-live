@@ -247,7 +247,9 @@ function App() {
                           <span>{match.group}</span>
                           <span className="animate-pulse flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-sport-accent inline-block"></span>
-                            LIVE {match.minute}
+                            {match.minute && match.minute.toLowerCase().includes('live')
+                              ? match.minute
+                              : `LIVE ${match.minute || ''}`}
                           </span>
                         </div>
                         <div className="flex flex-col gap-1.5">
