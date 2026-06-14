@@ -9,7 +9,7 @@ import TournamentBracket from './components/TournamentBracket';
 import MatchCountdown from './components/MatchCountdown';
 
 function App() {
-  // Always default to World Cup TSN 4 (id: WorldCupTSN4.tv)
+  // Always default to TSN 4 (English) (id: WorldCupTSN4.tv) as it is active and working
   const defaultChannel = channelsData.find(c => c.id === 'WorldCupTSN4.tv') || channelsData[0];
   const [selectedChannel, setSelectedChannel] = useState(defaultChannel);
   const [activeToast, setActiveToast] = useState(null);
@@ -87,13 +87,19 @@ function App() {
     return <span className="text-sm">{flag}</span>;
   };
 
-  // Filter matches
-  const liveMatches = matches.filter(m => m.status === 'live');
-  const finishedMatches = matches.filter(m => m.status === 'finished').slice(0, 4);
-  const upcomingMatches = matches.filter(m => m.status === 'upcoming');
-  const nextUpcomingMatch = upcomingMatches.length > 0 
-    ? [...upcomingMatches].sort((a, b) => (a.kickoffTime || Infinity) - (b.kickoffTime || Infinity))[0]
-    : null;
+  // Filter and sort matches
+  const liveMatches = matches
+    .filter(m => m.status === 'live')
+    .sort((a, b) => (a.kickoffTime || 0) - (b.kickoffTime || 0));
+  const finishedMatches = matches
+    .filter(m => m.status === 'finished')
+    .sort((a, b) => (b.kickoffTime || 0) - (a.kickoffTime || 0))
+    .slice(0, 4);
+  const upcomingMatches = matches
+    .filter(m => m.status === 'upcoming')
+    .sort((a, b) => (a.kickoffTime || Infinity) - (b.kickoffTime || Infinity));
+  const nextUpcomingMatch = upcomingMatches.length > 0 ? upcomingMatches[0] : null;
+
 
   return (
     <div className="flex flex-col min-h-screen bg-sport-bg text-white selection:bg-sport-accent selection:text-black">
@@ -156,7 +162,7 @@ function App() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col gap-2">
               {channelsData.map(ch => {
                 const isActive = selectedChannel.id === ch.id;
-                const isDefault = ch.id === 'WorldCupTSN4.tv';
+                const isDefault = ch.id === defaultChannel.id;
 
                 return (
                   <div
@@ -286,42 +292,6 @@ function App() {
                     </div>
                   )}
 
-                  {/* Finished Matches separator */}
-                  <div className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest mt-2 pl-1 border-l border-white/20">
-                    Recent Results
-                  </div>
-
-                  {/* Finished Matches list */}
-                  {finishedMatches.map(match => (
-                    <div
-                      key={match.id}
-                      className="bg-sport-card/40 border border-white/5 rounded-xl p-3 flex flex-col gap-2 hover:border-white/10 transition-all"
-                    >
-                      <div className="flex justify-between items-center text-[9px] font-bold text-sport-secondary uppercase tracking-widest">
-                        <span>{match.group}</span>
-                        <span className="flex items-center gap-1 text-[8px] font-bold bg-white/5 px-1.5 py-0.5 rounded text-sport-secondary">
-                          FINISHED
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex justify-between items-center text-xs text-sport-secondary">
-                          <div className="flex items-center gap-2">
-                            {renderFlag(match.homeFlag, "h-3 w-4.5 object-cover rounded-sm border border-white/10 opacity-70")}
-                            <span className="truncate max-w-[120px]">{match.homeTeam}</span>
-                          </div>
-                          <span className="font-mono text-white/80 font-bold">{match.score ? match.score.split('-')[0].trim() : '0'}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-sport-secondary">
-                          <div className="flex items-center gap-2">
-                            {renderFlag(match.awayFlag, "h-3 w-4.5 object-cover rounded-sm border border-white/10 opacity-70")}
-                            <span className="truncate max-w-[120px]">{match.awayTeam}</span>
-                          </div>
-                          <span className="font-mono text-white/80 font-bold">{match.score ? match.score.split('-')[1].trim() : '0'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
                   {/* Upcoming Matches separator */}
                   {upcomingMatches.length > 0 && (
                     <>
@@ -374,6 +344,42 @@ function App() {
                       ))}
                     </>
                   )}
+
+                  {/* Finished Matches separator */}
+                  <div className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest mt-2 pl-1 border-l border-white/20">
+                    Recent Results
+                  </div>
+
+                  {/* Finished Matches list */}
+                  {finishedMatches.map(match => (
+                    <div
+                      key={match.id}
+                      className="bg-sport-card/40 border border-white/5 rounded-xl p-3 flex flex-col gap-2 hover:border-white/10 transition-all"
+                    >
+                      <div className="flex justify-between items-center text-[9px] font-bold text-sport-secondary uppercase tracking-widest">
+                        <span>{match.group}</span>
+                        <span className="flex items-center gap-1 text-[8px] font-bold bg-white/5 px-1.5 py-0.5 rounded text-sport-secondary">
+                          FINISHED
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center text-xs text-sport-secondary">
+                          <div className="flex items-center gap-2">
+                            {renderFlag(match.homeFlag, "h-3 w-4.5 object-cover rounded-sm border border-white/10 opacity-70")}
+                            <span className="truncate max-w-[120px]">{match.homeTeam}</span>
+                          </div>
+                          <span className="font-mono text-white/80 font-bold">{match.score ? match.score.split('-')[0].trim() : '0'}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-sport-secondary">
+                          <div className="flex items-center gap-2">
+                            {renderFlag(match.awayFlag, "h-3 w-4.5 object-cover rounded-sm border border-white/10 opacity-70")}
+                            <span className="truncate max-w-[120px]">{match.awayTeam}</span>
+                          </div>
+                          <span className="font-mono text-white/80 font-bold">{match.score ? match.score.split('-')[1].trim() : '0'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
 
                 </div>
               </div>

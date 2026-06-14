@@ -19,8 +19,8 @@ const renderFlag = (flag) => {
 
 const TournamentBracket = ({ onSelectChannel, channels = [] }) => {
   const handlePlayMatch = () => {
-    // Select World Cup TSN 4 (default) as stream channel since other broadcasters are removed
-    const defaultChannel = channels.find(c => c.id === 'WorldCupTSN4.tv') || channels[0];
+    // Select ITV 1 (default) as stream channel
+    const defaultChannel = channels.find(c => c.id === 'ITV1.uk') || channels[0];
     if (defaultChannel && onSelectChannel) {
       onSelectChannel(defaultChannel);
     }

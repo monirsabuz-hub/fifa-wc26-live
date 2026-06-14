@@ -10,6 +10,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
   const shakaRef = useRef(null);
   const containerRef = useRef(null);
   const controlsTimeoutRef = useRef(null);
+  const retryTimerRef = useRef(null);
   const touchStartPos = useRef({ x: 0, y: 0 });
   const touchStartTimestamp = useRef(0);
 
@@ -55,6 +56,9 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
   const [showCorsHelper, setShowCorsHelper] = useState(false);
   const [copied, setCopied] = useState(false);
   const [useProxy, setUseProxy] = useState(true);
+  const [isStreamOffline, setIsStreamOffline] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState(0);
+  const [retryKey, setRetryKey] = useState(0);
 
   const resetControlsTimeout = () => {
     if (controlsTimeoutRef.current) {
@@ -156,12 +160,19 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
     }
     setCustomStreamUrl(null);
     setShowCorsHelper(false);
+    setIsStreamOffline(false);
+    setRetryCountdown(0);
     setLevels([]);
     setCurrentLevelIndex(-1);
     setActiveLevelIndex(-1);
     setShowQualityMenu(false);
     setShowControls(true);
     setHasStartedPlaying(false);
+    // Clear any pending retry timer when switching channels
+    if (retryTimerRef.current) {
+      clearInterval(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
   }, [channel]);
 
   useEffect(() => {
@@ -337,6 +348,16 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
 
           player.configure(shakaConfig);
 
+          // Inject custom request headers (e.g. Referer/Origin) for CDN authentication
+          if (channel.drm && channel.drm.requestHeaders) {
+            const customHeaders = channel.drm.requestHeaders;
+            player.getNetworkingEngine().registerRequestFilter((type, request) => {
+              Object.entries(customHeaders).forEach(([key, value]) => {
+                request.headers[key] = value;
+              });
+            });
+          }
+
           player.addEventListener('error', (event) => {
             console.error('Shaka player error:', event.detail);
             if (event.detail && event.detail.severity === 2) {
@@ -402,9 +423,40 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
             .catch((err) => {
               console.error('Shaka load error:', err);
               setIsLoading(false);
-              setShowCorsHelper(true);
               clearTimeout(loadingTimeout);
-              setErrorMsg('Failed to load DASH stream. Feeds are likely offline or blocked by CORS.');
+
+              // Detect HTTP 403 = stream is offline (not live yet)
+              // Shaka error code 1001 = HTTP_ERROR, data[1] = HTTP status code
+              const httpStatus = err?.data?.[1];
+              const isOffline = httpStatus === 403 || httpStatus === 404;
+
+              if (isOffline) {
+                setIsStreamOffline(true);
+                setErrorMsg('STREAM_OFFLINE');
+                // Auto-retry every 30 seconds by incrementing retryKey (which re-triggers the useEffect)
+                const RETRY_INTERVAL = 30;
+                setRetryCountdown(RETRY_INTERVAL);
+                if (retryTimerRef.current) clearInterval(retryTimerRef.current);
+                let countdown = RETRY_INTERVAL;
+                retryTimerRef.current = setInterval(() => {
+                  countdown -= 1;
+                  setRetryCountdown(countdown);
+                  if (countdown <= 0) {
+                    clearInterval(retryTimerRef.current);
+                    retryTimerRef.current = null;
+                    setIsStreamOffline(false);
+                    setErrorMsg(null);
+                    setIsLoading(true);
+                    setHasStartedPlaying(false);
+                    // Increment retryKey to re-trigger the main useEffect cleanly
+                    setRetryKey(k => k + 1);
+                  }
+                }, 1000);
+              } else {
+                setIsStreamOffline(false);
+                setShowCorsHelper(true);
+                setErrorMsg('Failed to load DASH stream. Feed may be blocked by CORS or DRM.');
+              }
             });
         })
         .catch((err) => {
@@ -450,6 +502,10 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
         cleanUpListeners();
         clearInterval(interval);
         clearTimeout(loadingTimeout);
+        if (retryTimerRef.current) {
+          clearInterval(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
         if (shakaRef.current) {
           shakaRef.current.destroy();
           shakaRef.current = null;
@@ -635,7 +691,7 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
         cleanUpListeners();
       };
     }
-  }, [channel, customStreamUrl, useProxy]);
+  }, [channel, customStreamUrl, useProxy, retryKey]);
 
   // Sync video element states
   useEffect(() => {
@@ -937,11 +993,13 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
       >
         {channel?.isIframe ? (
           <iframe
+            key={channel.id}
             src={channel.streamUrl}
             className="w-full h-full border-0"
             allowFullScreen
             scrolling="no"
-            allow="autoplay; fullscreen"
+            referrerPolicy="no-referrer-when-downgrade"
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope"
           />
         ) : (
           <video
@@ -965,69 +1023,142 @@ const VideoPlayer = ({ channel, onClose, isTheaterMode, onToggleTheater, nextMat
               className="absolute inset-0 bg-[#050B14]/95 backdrop-blur-md flex items-center justify-center z-25 pointer-events-auto"
             >
               <div className="text-center p-6 flex flex-col items-center w-full h-full max-h-[85%] overflow-y-auto no-scrollbar">
-                <div className="flex flex-col items-center max-w-md bg-[#050B14]/90 border border-white/10 p-6 rounded-2xl shadow-2xl mx-4 my-2">
-                  <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4">
-                    <ShieldAlert className="h-6 w-6" />
-                  </div>
-                  <h4 className="text-sm font-extrabold text-white uppercase tracking-wider mb-2">Stream Playback Blocked / Offline</h4>
-                  <p className="text-[11px] text-sport-secondary leading-relaxed mb-4 text-center">
-                    Public IPTV feeds frequently restrict embedding on third-party sites due to **CORS (Cross-Origin Resource Sharing)** security policies or geoblocks.
-                  </p>
 
-                  {/* Copy Link Input group */}
-                  <div className="w-full flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-2 rounded-xl mb-4 text-left">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={channel.streamUrl} 
-                      className="bg-transparent text-[10px] text-sport-secondary outline-none flex-1 font-mono truncate"
-                    />
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(channel.streamUrl);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className="bg-sport-accent/15 hover:bg-sport-accent text-sport-accent hover:text-black text-[9px] font-bold px-2.5 py-1 rounded transition-all duration-300"
-                    >
-                      {copied ? 'COPIED!' : 'COPY URL'}
-                    </button>
-                  </div>
+                {/* ── OFFLINE STATE ── */}
+                {isStreamOffline ? (
+                  <div className="flex flex-col items-center max-w-md bg-[#050B14]/90 border border-amber-500/20 p-6 rounded-2xl shadow-2xl mx-4 my-2">
+                    {/* Pulsing offline dot */}
+                    <div className="relative h-14 w-14 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-4">
+                      <div className="absolute inset-0 rounded-full border border-amber-500/20 animate-ping opacity-40" />
+                      <Tv className="h-6 w-6 text-amber-400" />
+                    </div>
+                    <h4 className="text-sm font-extrabold text-white uppercase tracking-wider mb-1">Stream Not Live</h4>
+                    <p className="text-[11px] text-amber-400/80 font-semibold mb-1">{channel?.name}</p>
+                    <p className="text-[10px] text-sport-secondary leading-relaxed mb-5 text-center max-w-[280px]">
+                      This channel is only available during live broadcasts. The stream will start automatically when it goes live.
+                    </p>
 
-                  <div className="flex flex-wrap gap-2.5 justify-center w-full">
-                    <button 
-                      onClick={() => window.open(channel.streamUrl, '_blank')} 
-                      className="bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
-                    >
-                      OPEN IN NEW TAB
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setCustomStreamUrl('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
-                        setErrorMsg(null);
-                        setIsLoading(true);
-                      }} 
-                      className="bg-sport-accent hover:bg-sport-accent/90 text-black font-extrabold text-[10px] px-4 py-2 rounded-lg shadow-lg shadow-sport-accent/10 transition-all"
-                    >
-                      PLAY TEST DEMO
-                    </button>
-                    <button 
-                      onClick={reloadStream} 
-                      className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
-                    >
-                      RETRY
-                    </button>
-                  </div>
+                    {/* Auto-retry countdown ring */}
+                    <div className="relative h-16 w-16 mb-4">
+                      <svg className="h-16 w-16 -rotate-90" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
+                        <circle
+                          cx="32" cy="32" r="28"
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - retryCountdown / 30)}`}
+                          style={{ transition: 'stroke-dashoffset 1s linear' }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-lg font-black text-white leading-none">{retryCountdown}</span>
+                        <span className="text-[8px] text-sport-secondary uppercase tracking-wider">retry</span>
+                      </div>
+                    </div>
 
-                  <div className="mt-4 pt-3 border-t border-white/5 w-full text-left">
-                    <span className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest block mb-1">Alternative Playback Options:</span>
-                    <ul className="list-disc list-inside text-[9px] text-sport-secondary/80 space-y-1">
-                      <li>Copy the URL above and stream it in **VLC Media Player** (Open Network Stream).</li>
-                      <li>Install a browser extension like **"Allow CORS: Access-Control-Allow-Origin"** and toggle it on to play all feeds directly.</li>
-                    </ul>
+                    <div className="flex gap-2.5 justify-center w-full">
+                      <button
+                        onClick={() => {
+                          if (retryTimerRef.current) { clearInterval(retryTimerRef.current); retryTimerRef.current = null; }
+                          setIsStreamOffline(false);
+                          setErrorMsg(null);
+                          setIsLoading(true);
+                          setHasStartedPlaying(false);
+                          setRetryKey(k => k + 1);
+                        }}
+                        className="bg-amber-500/15 hover:bg-amber-500/30 text-amber-400 font-extrabold text-[10px] px-5 py-2 rounded-lg border border-amber-500/30 transition-all flex items-center gap-1.5"
+                      >
+                        <RefreshCw className="h-3 w-3" /> RETRY NOW
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (retryTimerRef.current) { clearInterval(retryTimerRef.current); retryTimerRef.current = null; }
+                          setCustomStreamUrl('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
+                          setIsStreamOffline(false);
+                          setErrorMsg(null);
+                          setIsLoading(true);
+                        }}
+                        className="bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
+                      >
+                        TEST DEMO
+                      </button>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/5 w-full text-center">
+                      <span className="text-[9px] text-sport-secondary/60">
+                        Auto-retrying every 30 seconds · Check back during scheduled match times
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* ── CORS / BLOCKED STATE ── */
+                  <div className="flex flex-col items-center max-w-md bg-[#050B14]/90 border border-white/10 p-6 rounded-2xl shadow-2xl mx-4 my-2">
+                    <div className="h-12 w-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4">
+                      <ShieldAlert className="h-6 w-6" />
+                    </div>
+                    <h4 className="text-sm font-extrabold text-white uppercase tracking-wider mb-2">Stream Playback Blocked</h4>
+                    <p className="text-[11px] text-sport-secondary leading-relaxed mb-4 text-center">
+                      This feed is restricted by CORS policies or geoblocking and cannot play in-browser.
+                    </p>
+
+                    {/* Copy Link Input group */}
+                    <div className="w-full flex items-center gap-2 bg-white/5 border border-white/5 px-3 py-2 rounded-xl mb-4 text-left">
+                      <input 
+                        type="text" 
+                        readOnly 
+                        value={channel.streamUrl} 
+                        className="bg-transparent text-[10px] text-sport-secondary outline-none flex-1 font-mono truncate"
+                      />
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(channel.streamUrl);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="bg-sport-accent/15 hover:bg-sport-accent text-sport-accent hover:text-black text-[9px] font-bold px-2.5 py-1 rounded transition-all duration-300"
+                      >
+                        {copied ? 'COPIED!' : 'COPY URL'}
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2.5 justify-center w-full">
+                      <button 
+                        onClick={() => window.open(channel.streamUrl, '_blank')} 
+                        className="bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
+                      >
+                        OPEN IN NEW TAB
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCustomStreamUrl('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
+                          setErrorMsg(null);
+                          setIsLoading(true);
+                        }} 
+                        className="bg-sport-accent hover:bg-sport-accent/90 text-black font-extrabold text-[10px] px-4 py-2 rounded-lg shadow-lg shadow-sport-accent/10 transition-all"
+                      >
+                        PLAY TEST DEMO
+                      </button>
+                      <button 
+                        onClick={reloadStream} 
+                        className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] px-4 py-2 rounded-lg border border-white/10 transition-all"
+                      >
+                        RETRY
+                      </button>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-white/5 w-full text-left">
+                      <span className="text-[9px] font-extrabold text-sport-secondary uppercase tracking-widest block mb-1">Alternative Playback Options:</span>
+                      <ul className="list-disc list-inside text-[9px] text-sport-secondary/80 space-y-1">
+                        <li>Copy the URL above and play it in <strong>VLC</strong> (Media → Open Network Stream).</li>
+                        <li>Use a browser CORS extension like <strong>"Allow CORS"</strong> to unblock feeds.</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
